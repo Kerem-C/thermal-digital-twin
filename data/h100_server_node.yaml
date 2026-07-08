@@ -1,0 +1,48 @@
+simulation:
+  dt: 0.001
+  total_time: 600.0
+  target_temp: 55.0
+
+nodes:
+  - id: 0
+    type: "SiliconDie"
+    name: "H100_GPU"
+    mass: 0.08
+    power_gen: 700.0
+    initial_temp: 25.0
+
+  - id: 1
+    type: "LiquidColdPlate"
+    name: "Copper_Block"
+    mass: 0.35
+    initial_temp: 25.0
+
+  - id: 2
+    type: "CoolantFluidNode"
+    name: "Water_Loop" 
+    mass: 0.10
+    initial_temp: 20.0
+
+  - id: 3
+    type: "CoolantFluidNode"
+    name: "Facility_CHW_Supply"
+    mass: 10000.0
+    initial_temp: 20.0
+
+connections:
+  - id_1: 0
+    id_2: 1
+    resistance: 0.005 # R_tim
+  - id_1: 1
+    id_2: 2
+    resistance: 0.02 # R_conv
+
+advection:
+  - upstream_id: 3
+    downstream_id: 2
+    mass_flow_rate: 0.05
+    specific_heat: 4184.0
+  - upstream_id: 2
+    downstream_id: 3
+    mass_flow_rate: 0.05
+    specific_heat: 4184.0
