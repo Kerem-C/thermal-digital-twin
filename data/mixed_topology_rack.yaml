@@ -1,0 +1,174 @@
+simulation:
+  dt: 0.01
+  total_time: 2000.0
+  target_temp: 55.0
+
+nodes:
+  # MANIFOLDS (Parallel Distribution)
+  - id: 100
+    type: "CoolantFluidNode"
+    name: "Main_Supply_Manifold"
+    mass: 5.0
+    initial_temp: 20.0
+    
+  - id: 999
+    type: "CoolantFluidNode"
+    name: "Main_Return_Manifold"
+    mass: 5.0
+    initial_temp: 20.0
+
+  - id: 1000
+    type: "CoolantFluidNode"
+    name: "Facility_Sink"
+    mass: 9999.0
+    initial_temp: 20.0
+
+  # BRANCH A (GPUs 1 & 2 in Series)
+  # GPU 1 
+  - id: 1
+    type: "SiliconDie"
+    name: "GPU_1_Silicon"
+    mass: 0.08
+    power_gen: 700.0
+    initial_temp: 25.0
+  - id: 2
+    type: "LiquidColdPlate"
+    name: "GPU_1_Copper"
+    mass: 0.35
+    initial_temp: 25.0
+  - id: 10
+    type: "CoolantFluidNode"
+    name: "GPU_1_Fluid"
+    mass: 0.10
+    initial_temp: 20.0
+
+  # GPU 2
+  - id: 3
+    type: "SiliconDie"
+    name: "GPU_2_Silicon"
+    mass: 0.08
+    power_gen: 700.0
+    initial_temp: 25.0
+  - id: 4
+    type: "LiquidColdPlate"
+    name: "GPU_2_Copper"
+    mass: 0.35
+    initial_temp: 25.0
+  - id: 20
+    type: "CoolantFluidNode"
+    name: "GPU_2_Fluid"
+    mass: 0.10
+    initial_temp: 20.0
+
+  # BRANCH B (GPUs 3 & 4 in Series)
+  # GPU 3
+  - id: 5
+    type: "SiliconDie"
+    name: "GPU_3_Silicon"
+    mass: 0.08
+    power_gen: 700.0
+    initial_temp: 25.0
+  - id: 6
+    type: "LiquidColdPlate"
+    name: "GPU_3_Copper"
+    mass: 0.35
+    initial_temp: 25.0
+  - id: 30
+    type: "CoolantFluidNode"
+    name: "GPU_3_Fluid"
+    mass: 0.10
+    initial_temp: 20.0
+
+  # GPU 4
+  - id: 7
+    type: "SiliconDie"
+    name: "GPU_4_Silicon"
+    mass: 0.08
+    power_gen: 700.0
+    initial_temp: 25.0
+  - id: 8
+    type: "LiquidColdPlate"
+    name: "GPU_4_Copper"
+    mass: 0.35
+    initial_temp: 25.0
+  - id: 40
+    type: "CoolantFluidNode"
+    name: "GPU_4_Fluid"
+    mass: 0.10
+    initial_temp: 20.0
+  
+
+
+connections:
+  # GPU 1: Silicon -> Copper -> Fluid
+  - id_1: 1
+    id_2: 2
+    resistance: 0.005 # R_tim
+  - id_1: 2
+    id_2: 10
+    resistance: 0.02  # R_conv
+
+  # GPU 2: Silicon -> Copper -> Fluid
+  - id_1: 3
+    id_2: 4
+    resistance: 0.005
+  - id_1: 4
+    id_2: 20
+    resistance: 0.02
+
+  # GPU 3: Silicon -> Copper -> Fluid
+  - id_1: 5
+    id_2: 6
+    resistance: 0.005
+  - id_1: 6
+    id_2: 30
+    resistance: 0.02
+
+  # GPU 4: Silicon -> Copper -> Fluid
+  - id_1: 7
+    id_2: 8
+    resistance: 0.005
+  - id_1: 8
+    id_2: 40
+    resistance: 0.02
+
+advection:
+  # PARALLEL SPLIT: Facility supply splits evenly into Branch A and Branch B
+  - upstream_id: 100
+    downstream_id: 10
+    mass_flow_rate: 0.025
+    specific_heat: 4184.0
+    
+  - upstream_id: 100
+    downstream_id: 30
+    mass_flow_rate: 0.025
+    specific_heat: 4184.0
+
+  # SERIES ROUTING: Fluid moves through the daisy-chain inside each branch
+  # Branch A (GPU 1 -> GPU 2)
+  - upstream_id: 10
+    downstream_id: 20
+    mass_flow_rate: 0.025
+    specific_heat: 4184.0
+    
+  # Branch B (GPU 3 -> GPU 4)
+  - upstream_id: 30
+    downstream_id: 40
+    mass_flow_rate: 0.025
+    specific_heat: 4184.0
+
+  # MERGE: Both branches dump hot fluid into the Return Manifold
+  - upstream_id: 20
+    downstream_id: 999
+    mass_flow_rate: 0.025
+    specific_heat: 4184.0
+    
+  - upstream_id: 40
+    downstream_id: 999
+    mass_flow_rate: 0.025
+    specific_heat: 4184.0
+
+  - upstream_id: 999
+    downstream_id: 1000
+    mass_flow_rate: 0.05
+    specific_heat: 4184.0
