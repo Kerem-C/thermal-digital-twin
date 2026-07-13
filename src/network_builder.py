@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.typing as npt
+import scipy.sparse as sp
 from typing import Tuple, List, Dict
 from src.nodes import ThermalNode
 
@@ -26,11 +27,12 @@ class ThermalNetwork:
     def add_advection_route(self, id_upstream: int, id_downstream: int, mass_flow_rate: float, specific_heat: float = 4184.0) -> None:
         self.advection_routes.append((id_upstream, id_downstream, mass_flow_rate, specific_heat))
 
-    def compile_static_matrices(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64], List[Tuple[int, int, float, float]]]:
+    def compile_static_matrices(self) -> Tuple[npt.NDArray[np.float64], sp.csr_matrix, npt.NDArray[np.float64], List[Tuple[int, int, float, float]]]:
         n = len(self.nodes)
         C = np.zeros(n, dtype=np.float64)
         P = np.zeros(n, dtype=np.float64)
-        K_base = np.zeros((n, n), dtype=np.float64)
+        
+        K_base: sp.lil_matrix = sp.lil_matrix((n, n), dtype=np.float64)
 
         for i, node in enumerate(self.nodes):
             C[i] = node.capacitance
@@ -65,4 +67,4 @@ class ThermalNetwork:
             flow_ratio = (m_dot / total_system_flow) if total_system_flow > 0 else 0.0
             advection_indices.append((self.node_indices[up], self.node_indices[down], flow_ratio, cp))
 
-        return C, K_base, P, advection_indices
+        return C, K_base.tocsr(), P, advection_indices

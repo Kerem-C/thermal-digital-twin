@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sp
 import pytest
 from src.solver import ThermalSolver
 from src.pid_controller import PIDController
@@ -12,7 +13,7 @@ def test_energy_conservation_steady_state():
     """
     C = np.array([100.0, 100.0])
     P = np.array([100.0, 0.0]) 
-    K_base = np.array([[-1.0, 1.0], [1.0, -1.0]])
+    K_base = sp.csr_matrix([[-1.0, 1.0], [1.0, -1.0]], dtype=np.float64)
     
     solver = ThermalSolver(C, K_base, P, advection_indices=[])
     T_test = np.array([100.0, 0.0])
