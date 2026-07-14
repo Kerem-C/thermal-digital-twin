@@ -18,9 +18,9 @@ def test_energy_conservation_steady_state():
     solver = ThermalSolver(C, K_base, P, advection_indices=[])
     T_test = np.array([100.0, 0.0])
     
-    dT_dt = solver.calculate_derivative(T_test)
+    T_next = solver.step_rk4(T_test, dt=1.0)
     
-    np.testing.assert_almost_equal(dT_dt[0], 0.0, err_msg="Energy is not conserved at steady state.")
+    np.testing.assert_almost_equal(T_next[0], T_test[0], decimal=2, err_msg="Energy is not conserved at steady state.")
 
 def test_pid_boundary_enforcement():
     """

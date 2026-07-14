@@ -3,6 +3,8 @@ import numpy.typing as npt
 import scipy.sparse as sp
 from typing import Tuple, List
 
+import rk4_backend
+
 class ThermalSolver:
     def __init__(self, 
                  C: npt.NDArray[np.float64],
@@ -29,16 +31,18 @@ class ThermalSolver:
         
         self.K_current = K_mod.tocsr()
 
-    def calculate_derivative(self, T: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return (self.K_current.dot(T) + self.P) / self.C
-
     def step_rk4(self, T_current: npt.NDArray[np.float64], dt: float) -> npt.NDArray[np.float64]:
-        k1 = self.calculate_derivative(T_current)
-        k2 = self.calculate_derivative(T_current + 0.5 * dt * k1)
-        k3 = self.calculate_derivative(T_current + 0.5 * dt * k2)
-        k4 = self.calculate_derivative(T_current + dt * k3)
+        K_data = self.K_current.data.astype(np.float64)
+        K_indices = self.K_current.indices.astype(np.int32)
+        K_indptr = self.K_current.indptr.astype(np.int32)
+        
+        T_next = rk4_backend.step_rk4(
+            T_current, dt, self.C, self.P, 
+            K_data, K_indices, K_indptr
+        )
+        
+        return T_next
 
-        return T_current + (dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
     
 
         
