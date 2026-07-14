@@ -32,3 +32,6 @@ build/
 *.egg-info/
 *.o
 *.obj
+
+# Local API scratchpad tests
+test_api.py
