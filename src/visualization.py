@@ -34,7 +34,16 @@ def render_simulation_dashboard(network: ThermalNetwork, sim_settings: Dict[str,
 
     ax1.set_title("Active Server Rack: Closed-Loop PID Thermal Response", fontweight='bold', pad=10)
     ax1.set_ylabel("Junction Temperature (°C)", fontweight='bold')
-    ax1.legend(bbox_to_anchor=(1.02, 1), loc="upper left", framealpha=0.95)
+    ax1.legend(
+    loc="lower right",
+    ncol=2,
+    fontsize=8,
+    framealpha=0.95,
+    labelspacing=0.3,
+    columnspacing=1.0,
+    borderpad=0.4,
+    handlelength=1.5
+    )
     ax1.grid(True, linestyle='--', alpha=0.5)
     ax1.spines['top'].set_visible(False)
     ax1.spines['right'].set_visible(False)
