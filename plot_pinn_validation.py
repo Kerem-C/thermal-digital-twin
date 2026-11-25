@@ -68,7 +68,7 @@ def main() -> None:
     ax2.spines["top"].set_visible(False)
     ax2.spines["right"].set_visible(False)
 
-    fig.suptitle(f"PINN Surrogate Validation (Mean Energy Balance Error: {mean_energy_err:.2f}%)", fontweight="bold", y=1.02)
+    fig.suptitle("PINN Surrogate Validation (500 Monte Carlo Scenarios)", fontweight="bold", y=1.02)
     plt.tight_layout()
     plt.savefig("portfolio_pinn_validation.png", dpi=300, bbox_inches="tight")
     plt.show()
