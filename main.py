@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from src.config_parser import build_network_from_yaml
 from src.solver import ThermalSolver
 from src.pid_controller import PIDController
@@ -15,8 +14,8 @@ def main() -> None:
     time_steps = int(sim_settings["total_time"] / dt)
     T_current = np.array([node.initial_temp for node in network.nodes], dtype=np.float64)
 
-
-    pid_track_index = next((i for i, node in enumerate(network.nodes) if node.__class__.__name__ == 'SiliconDie'), 0)
+    # Track ALL SiliconDie nodes so the PID protects the hottest GPU in the rack
+    die_indices = [i for i, node in enumerate(network.nodes) if node.__class__.__name__ == 'SiliconDie']
 
     pid = PIDController(kp=0.005, ki=0.0001, kd=0.001, 
                         setpoint=sim_settings["target_temp"], 
@@ -25,15 +24,22 @@ def main() -> None:
     history = np.zeros((time_steps, len(network.nodes)), dtype=np.float64)
     pump_history = np.zeros(time_steps, dtype=np.float64)
 
+    spike_step = time_steps // 2
     print(f"Executing Vectorized RK4 Integration over {time_steps} time steps...")
 
     for step in range(time_steps):
+        # Inject a 1.5x compute load spike halfway through to demonstrate disturbance rejection
+        if step == spike_step:
+            solver.P[die_indices] *= 1.5
+
         history[step] = T_current
 
-        gpu_temp = T_current[pid_track_index]
-        m_dot = pid.compute(gpu_temp, dt)
+        # Feed the worst-case (hottest) GPU temperature to the PID controller
+        hottest_gpu_temp = float(np.max(T_current[die_indices]))
+        m_dot = pid.compute(hottest_gpu_temp, dt)
         pump_history[step] = m_dot
-        solver.update_advection(m_dot_total = m_dot)
+
+        solver.update_advection(m_dot_total=m_dot)
         T_current = solver.step_rk4(T_current, dt)
 
     render_simulation_dashboard(network, sim_settings, time_steps, history, pump_history)

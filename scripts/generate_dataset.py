@@ -19,14 +19,15 @@ def run_monte_carlo(num_simulations: int = 500) -> None:
     num_gpus = len(silicon_indices)
 
     dataset: Dict[str, np.ndarray] = {
-        "p_gpu_avg_watts": np.zeros(num_simulations, dtype=np.float64),
-        "r_tim_degC_W": np.zeros(num_simulations, dtype=np.float64),
+        "p_gpu_1": np.zeros(num_simulations, dtype=np.float64),
+        "p_gpu_2": np.zeros(num_simulations, dtype=np.float64),
+        "p_gpu_3": np.zeros(num_simulations, dtype=np.float64),
+        "p_gpu_4": np.zeros(num_simulations, dtype=np.float64),
         "m_dot_steady_kg_s": np.zeros(num_simulations, dtype=np.float64),
         "t_return_manifold": np.zeros(num_simulations, dtype=np.float64)
     }
 
     p_gpu_samples = np.random.uniform(300.0, 1000.0, (num_simulations, num_gpus))
-    r_tim_samples = np.abs(np.random.normal(loc=0.005, scale=0.001, size=num_simulations))
 
     start_time = time.time()
 
@@ -45,7 +46,6 @@ def run_monte_carlo(num_simulations: int = 500) -> None:
         steady_m_dot = 0.0
 
         for step in range(time_steps):
-            # The PID tracks the HOTTEST GPU in the cluster to prevent thermal runaway
             max_gpu_temp = np.max(T_current[silicon_indices])
             m_dot = pid.compute(max_gpu_temp, dt)
 
@@ -55,8 +55,10 @@ def run_monte_carlo(num_simulations: int = 500) -> None:
             if step == time_steps - 1:
                 steady_m_dot = m_dot
 
-        dataset["p_gpu_avg_watts"][i] = np.mean(p_gpu_samples[i])
-        dataset["r_tim_degC_W"][i] = r_tim_samples[i]
+        dataset["p_gpu_1"][i] = p_gpu_samples[i, 0]
+        dataset["p_gpu_2"][i] = p_gpu_samples[i, 1]
+        dataset["p_gpu_3"][i] = p_gpu_samples[i, 2]
+        dataset["p_gpu_4"][i] = p_gpu_samples[i, 3]
         dataset["m_dot_steady_kg_s"][i] = steady_m_dot
 
         return_node_idx = network.node_indices.get(999, -1)

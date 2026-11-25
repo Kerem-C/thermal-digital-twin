@@ -10,7 +10,7 @@ class ThermalDataset(Dataset):
     def __init__(self, csv_file: str) -> None:
         df = pd.read_csv(csv_file)
 
-        self.X = df[['p_gpu_avg_watts', 'r_tim_degC_W']].values
+        self.X = df[['p_gpu_1', 'p_gpu_2', 'p_gpu_3', 'p_gpu_4']].values
         self.Y = df[['m_dot_steady_kg_s', 't_return_manifold']].values
 
         self.X_mean, self.X_std = self.X.mean(axis=0), self.X.std(axis=0)
@@ -31,9 +31,8 @@ class ThermalDataset(Dataset):
 class ThermalPINN(nn.Module):
     def __init__(self) -> None:
         super(ThermalPINN, self).__init__()
-        # Utilizing SiLU for smooth, non-zero continuous derivatives
         self.network = nn.Sequential(
-            nn.Linear(2, 128),
+            nn.Linear(4, 128),
             nn.SiLU(),
             nn.Linear(128, 128),
             nn.SiLU(),
@@ -43,21 +42,17 @@ class ThermalPINN(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.network(x)
     
-def pinn_loss(predictions_norm: torch.Tensor, targets_norm: torch.Tensor, inputs_norm: torch.Tensor, dataset: ThermalDataset, lambda_phys: float=0.0, num_gpus: int = 4) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Computes the composite loss: Standard MSE + Thermodynamic Penalty.
-    """
+def pinn_loss(predictions_norm: torch.Tensor, targets_norm: torch.Tensor, inputs_norm: torch.Tensor, dataset: ThermalDataset, lambda_phys: float=0.0) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     mse_loss = nn.MSELoss()(predictions_norm, targets_norm)
 
     device = predictions_norm.device
-    predictions = predictions_norm * torch.tensor(dataset.Y_std, device=device) + torch.tensor(dataset.Y_mean, device=device)
-    inputs = inputs_norm * torch.tensor(dataset.X_std, device=device) + torch.tensor(dataset.X_mean, device=device)
+    predictions = predictions_norm * torch.tensor(dataset.Y_std, dtype=torch.float32, device=device) + torch.tensor(dataset.Y_mean, dtype=torch.float32, device=device)
+    inputs = inputs_norm * torch.tensor(dataset.X_std, dtype=torch.float32, device=device) + torch.tensor(dataset.X_mean, dtype=torch.float32, device=device)
 
-    p_gpu = inputs[:, 0]
+    p_in_total = torch.sum(inputs, dim=1)
     m_dot = predictions[:, 0]
     t_return = predictions[:, 1]
 
-    p_in_total = float(num_gpus) * p_gpu
     q_out_total = m_dot * 4184.0 * (t_return - 20.0)
 
     physics_loss = torch.mean(((p_in_total - q_out_total) / p_in_total) ** 2)
@@ -72,25 +67,24 @@ def train_model() -> None:
     dataloader = DataLoader(dataset, batch_size=128, shuffle=True)
 
     model = ThermalPINN()
-    optimizer = optim.Adam(model.parameters(), lr=0.0005)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    epochs = 10000
+    epochs = 4000
 
     print("Initiating Physics-Informed Training Loop...")
-    print("Initiating Curriculum Learning: Mapping Data first, enforcing Physics later...")
     for epoch in range(epochs):
         total_loss, total_mse, total_phys = 0.0, 0.0, 0.0
         
         if epoch < 500:
             current_lambda = 0.0
         else:
-            current_lambda = min(0.1, (epoch-500) * 0.0001)
+            current_lambda = min(0.1, (epoch - 500) * 0.0001)
 
         for X_batch, Y_batch in dataloader:
             optimizer.zero_grad()
             predictions = model(X_batch)
 
-            loss, mse, phys = pinn_loss(predictions, Y_batch, X_batch, dataset, lambda_phys=current_lambda, num_gpus=4)
+            loss, mse, phys = pinn_loss(predictions, Y_batch, X_batch, dataset, lambda_phys=current_lambda)
             
             loss.backward()
             optimizer.step()
@@ -99,11 +93,11 @@ def train_model() -> None:
             total_mse += mse.item()
             total_phys += phys.item()
 
-        if (epoch + 1) % 100 == 0:
+        if (epoch + 1) % 200 == 0:
             avg_loss = total_loss / len(dataloader)
             avg_mse = total_mse / len(dataloader)
             avg_phys = total_phys / len(dataloader)
-            print(f"Epoch {epoch+1:04d} | Lambda: {current_lambda:.4f} | Total Loss: {avg_loss:.4f} | Data MSE: {avg_mse:.4f} | Physics: {avg_phys:.4f}")
+            print(f"Epoch {epoch+1:04d} | Lambda: {current_lambda:.4f} | Total Loss: {avg_loss:.5f} | Data MSE: {avg_mse:.5f} | Physics: {avg_phys:.5f}")
     
     print("Training Complete. Thermodynamics successfully mapped to tensor weights.")
     torch.save(model.state_dict(), "data/thermal_pinn.pth")
